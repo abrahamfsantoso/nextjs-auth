@@ -2,6 +2,10 @@ import { hashPassword } from '../../../lib/auth';
 import { connectToDatabase } from '../../../lib/db';
 
 async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return;
+  }
+
   const data = req.body;
 
   const { email, password } = data;
@@ -23,7 +27,15 @@ async function handler(req, res) {
 
   const db = client.db();
 
-  const hashedPassword = hashPassword(password);
+  const existingUser = await db.collection('users').findOne({ email: email });
+
+  if (existingUser) {
+    res.status(422).json({ message: 'User exists already!' });
+    client.close();
+    return;
+  }
+
+  const hashedPassword = await hashPassword(password);
 
   const result = await db.collection('users').insertOne({
     email: email,
@@ -31,6 +43,7 @@ async function handler(req, res) {
   });
 
   res.status(201).json({ message: 'Created user!' });
+  client.close();
 }
 
 export default handler;
